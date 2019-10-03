@@ -12,6 +12,8 @@ from sklearn.feature_selection import VarianceThreshold
 from sklearn.feature_selection import SelectKBest
 from sklearn.feature_selection import chi2
 from imblearn.over_sampling import SMOTE
+from sklearn.naive_bayes import BernoulliNB
+from sklearn.metrics import f1_score
 def importData():
     data = None
     ranks = None
@@ -99,14 +101,12 @@ def main():
     selector_rfecv = None
     sparse_matrix_rfecv = []
     if(path.exists("selector_rfecv.p") and path.exists("sparse_matrix_rfecv.p")):
-        selector_rfecv = pk.load(open("threshold_matrix.p", "rb"))
-        sparse_matrix_rfecv = pk.load(open("varThreshold.p", "rb"))
+        selector_rfecv = pk.load(open("selector_rfecv.p", "rb"))
+        sparse_matrix_rfecv = pk.load(open("sparse_matrix_rfecv.p", "rb"))
     else:
         selector_rfecv,sparse_matrix_rfecv = rfecvFeatureSelection(threshold_matrix,ranks)
-        print(selector_rfecv)
-        print(sparse_matrix_rfecv)
         pk.dump(selector_rfecv, open("selector_rfecv.p", "wb"))
-        pk.dump(sparse_matrix_rfecv, open("sparse_matrix_rfecv.p", "wb"))
+        pk.dump(csr_matrix(sparse_matrix_rfecv), open("sparse_matrix_rfecv.p", "wb"))
         #features selection mutual info 
     # sparse_matrix_inf = []
     # if(path.exists("sparse_matrix_mutual.p")):
@@ -123,7 +123,7 @@ def main():
     #     pk.dump(sparse_matrix_chi, open("sparse_matrix_chi.p","wb"))
     
     #print(threshold_matrix)
-    print(sparse_matrix_rfecv)
+    #print(sparse_matrix_rfecv)
     #print(sparse_matrix_mutual)
     #print(sparse_matrix_chi)
 
@@ -131,9 +131,36 @@ def main():
     Orig_X_resampled,Orig_y_resampled = SMOTE().fit_resample(sparse_matrix.todense(),ranks)
     Thresh_X_resampled,Thresh_y_resampled = SMOTE().fit_resample(threshold_matrix,ranks)
     RFECV_X_resampled,RFECV_y_resampled = SMOTE().fit_resample(sparse_matrix_rfecv,ranks)
-    #run classifier1 on data
+    #run classifiers on data
+        #decision tree
 
-    #run classifier 2 on data
+        #Bernoulli naive bayes
+    clf_orig = BernoulliNB()
+    print(Orig_X_resampled.shape)
+    print(Orig_y_resampled.shape)
+    clf_orig.fit(Orig_X_resampled, Orig_y_resampled)
+    
+    clf_thresh = BernoulliNB()
+    print(Thresh_X_resampled.shape)
+    print(Thresh_y_resampled.shape)
+    clf_thresh.fit(Thresh_X_resampled, Thresh_y_resampled)
+    
+    clf_rcef = BernoulliNB()
+    print(RFECV_X_resampled.shape)
+    print(RFECV_y_resampled.shape)
+    clf_rcef.fit(RFECV_X_resampled, RFECV_X_resampled)
+    
+    #somehow test the output f1 score
+    orig_pred = clf_orig.predict(sparse_matrix[:300])
+    test_set1 = threshold.fit(sparse_matrix[:300])
+    print(test_set1)
+    thresh_pred = clf_thresh.predict(test_set1)
+    test_set2 = selector_rfecv.fit(test_set1)
+    print(test_set2)
+    rcefv_pred = clf_rcef.predict(test_set2)
 
-    #somehow test the output
+    orig_f1 = f1_score(ranks[:300], orig_pred, average='macro') 
+    thresh_f1 = f1_score(ranks[:300], orig_pred, average='macro') 
+    #rcefv_f1 = f1_score(ranks[:300], orig_pred, average='macro') 
+    print('orig:',orig_f1,'threshold:',thres_f1) #,'rcef',rcefv_f1)
 main()
